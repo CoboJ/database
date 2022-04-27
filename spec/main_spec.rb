@@ -7,7 +7,11 @@ describe 'database' do
     raw_output = nil
     IO.popen("./db test.db", "r+") do |pipe|
       commands.each do |command|
-        pipe.puts command
+        begin
+          pipe.puts command
+        rescue Errno::EPIPE
+          break
+        end
       end
 
       pipe.close_write
@@ -32,21 +36,21 @@ describe 'database' do
     ])
   end
 
-  it `keeps data after closing connection` do
-    resul1 = run_script([
+  it 'keeps data after closing connection' do
+    result1 = run_script([
         "insert 1 user1 person1@example.com",
         ".exit",
     ])
-    expect(resul1).to match_array([
+    expect(result1).to match_array([
         "db > Executed.",
         "db > ",
     ])
 
-    resul2 = run_script([
+    result2 = run_script([
         "select",
         ".exit",
     ])
-    expect(resul2).to match_array([
+    expect(result2).to match_array([
         "db > (1, user1, person1@example.com)",
         "Executed.",
         "db > ",
@@ -59,7 +63,10 @@ describe 'database' do
     end
     script << ".exit"
     result = run_script(script)
-    expect(result[-2]).to eq('db > Error: Table full.')
+    expect(result.last(2)).to match_array([
+      "db > Executed.",
+      "db > Need to implement updating parent after split",
+    ])
   end
   
   it 'allows inserting strings that are the maximum length' do
@@ -121,7 +128,7 @@ describe 'database' do
       "db > Executed.",
       "db > Error: Duplicate key.",
       "db > (1, user1, person1@example.com)",
-      "db > Executed.",
+      "Executed.",
       "db > ",
     ])
   end
@@ -195,7 +202,8 @@ describe 'database' do
       "    - 12",
       "    - 13",
       "    - 14",
-      "db > Need to implement searching an internal node",
+      "db > Executed.",
+      "db > ",
     ])
   end
 end
